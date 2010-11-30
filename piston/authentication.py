@@ -112,7 +112,7 @@ def initialize_server_request(request):
     Shortcut for initialization.
     """
     # c.f. http://www.mail-archive.com/oauth@googlegroups.com/msg01556.html
-    if request.method == "POST": # and request.META['CONTENT_TYPE'] == "application/x-www-form-urlencoded":
+    if request.method == "POST" and request.META['CONTENT_TYPE'] == "application/x-www-form-urlencoded":
         params = dict(request.REQUEST.items())
     else:
         params = {}
