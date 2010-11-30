@@ -226,11 +226,10 @@ class OAuthRequest(object):
             del params['oauth_signature']
         except:
             pass
-        # Escape key values before sorting.
+
+        key_values = sorted(params.items())
         key_values = [(escape(_utf8_str(k)), escape(_utf8_str(v))) \
-            for k,v in params.items()]
-        # Sort lexicographically, first after key, then after value.
-        key_values.sort()
+            for k,v in key_values]
         # Combine key value pairs into a string.
         return '&'.join(['%s=%s' % (k, v) for k, v in key_values])
 
