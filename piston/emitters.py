@@ -291,7 +291,7 @@ class Emitter(object):
             """
             Dictionaries.
             """
-            return dict([ (k, _any(v, fields)) for k, v in data.iteritems() ])
+            return dict([ (k, _any(v, fields)) for k, v in data.iteritems() if k in fields])
 
         # Kickstart the seralizin'.
         return _any(self.data, self.fields)
