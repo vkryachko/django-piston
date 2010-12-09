@@ -76,11 +76,15 @@ class Emitter(object):
 
     def normalize_field(self, fields):
         field_dict = {}
+
         for field in fields:
             if isinstance(field, (list, tuple,)):
-                field_dict[field[0]] = self.normalize_field(field[1])
+                if len(field) == 2:
+                    field_dict[field[0]] = self.normalize_field(field[1])
+                else:
+                    field_dict[field[0]] = {}
             else:
-                field_dict[field] = []
+                field_dict[field] = {}
         return field_dict
 
     def method_fields(self, handler, fields):
@@ -301,7 +305,7 @@ class Emitter(object):
             """
             Dictionaries.
             """
-            return dict([ (k, _any(v, fields[k])) for k, v in data.iteritems() if k in fields])
+            return dict([ (k, _any(v, fields.get(k, {}))) for k, v in data.iteritems() if (not fields or k in fields)])
 
         # Kickstart the seralizin'.
         return _any(self.data, self.fields)
