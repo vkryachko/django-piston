@@ -115,11 +115,11 @@ class Emitter(object):
                 raise HttpStatusCode(thing)
             elif inspect.isfunction(thing):
                 if not inspect.getargspec(thing)[0]:
-                    ret = _any(thing())
+                    ret = _any(thing(), fields=fields)
             elif hasattr(thing, '__emittable__'):
                 f = thing.__emittable__
                 if inspect.ismethod(f) and len(inspect.getargspec(f)[0]) == 1:
-                    ret = _any(f())
+                    ret = _any(f(), fields=fields)
             elif repr(thing).startswith("<django.db.models.fields.related.RelatedManager"):
                 ret = _any(thing.all())
             else:
