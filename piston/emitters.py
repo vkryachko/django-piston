@@ -79,10 +79,7 @@ class Emitter(object):
 
         for field in fields:
             if isinstance(field, (list, tuple,)):
-                if len(field) == 2:
-                    field_dict[field[0]] = self.normalize_field(field[1])
-                else:
-                    field_dict[field[0]] = {}
+                field_dict[field[0]] = self.normalize_field(field[1])
             else:
                 field_dict[field] = {}
         return field_dict
@@ -120,11 +117,11 @@ class Emitter(object):
             elif isinstance(thing, (tuple, list, set)):
                 ret = _list(thing, fields=fields)
             elif isinstance(thing, dict):
-                ret = _dict(thing, fields)
+                ret = _dict(thing, fields=fields)
             elif isinstance(thing, decimal.Decimal):
                 ret = str(thing)
             elif isinstance(thing, Model):
-                ret = _model(thing, fields)
+                ret = _model(thing, fields=fields)
             elif isinstance(thing, HttpResponse):
                 raise HttpStatusCode(thing)
             elif inspect.isfunction(thing):
@@ -135,7 +132,7 @@ class Emitter(object):
                 if inspect.ismethod(f) and len(inspect.getargspec(f)[0]) == 1:
                     ret = _any(f(), fields=fields)
             elif repr(thing).startswith("<django.db.models.fields.related.RelatedManager"):
-                ret = _any(thing.all())
+                ret = _any(thing.all(), fields=fields)
             else:
                 ret = smart_unicode(thing, strings_only=True)
 
@@ -159,12 +156,15 @@ class Emitter(object):
             """
             return [ _model(m, fields) for m in getattr(data, field.name).iterator() ]
 
-        def _model(data, fields=()):
+        def _model(data, fields=None):
             """
             Models. Will respect the `fields` and/or
             `exclude` on the handler (see `typemapper`.)
             """
-            ret = { }
+            if fields is None:
+                fields = {}
+
+            ret = {}
             handler = self.in_typemapper(type(data), self.anonymous)
             get_absolute_uri = False
 
