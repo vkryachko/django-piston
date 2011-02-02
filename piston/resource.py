@@ -39,6 +39,16 @@ class Response(object):
     def transform_data(self):
         return self.data
 
+class EnhancedResponse(Response):
+    def transform_data(self):
+        return {
+                'status_code': self.status_code,
+                'error_code': self.error_code,
+                'error_message': self.error_message,
+                'form_errors': self.form_errors,
+                'data': self.data,
+                }
+
 class Resource(object):
     """
     Resource. Create one for your URL mappings, just
