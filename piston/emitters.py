@@ -59,6 +59,7 @@ class Emitter(object):
     as the methods on the handler. Issue58 says that's no good.
     """
     EMITTERS = { }
+    ALWAYS_200_OK = False
     RESERVED_FIELDS = set([ 'read', 'update', 'create',
                             'delete', 'model', 'anonymous',
                             'allowed_methods', 'fields', 'exclude' ])
@@ -384,6 +385,20 @@ class JSONEmitter(Emitter):
     JSON emitter, understands timestamps.
     """
     def render(self, request):
+        seria = simplejson.dumps(self.construct(), cls=DateTimeAwareJSONEncoder, ensure_ascii=False, indent=4)
+
+        return seria
+
+Emitter.register('json', JSONEmitter, 'application/json; charset=utf-8')
+Mimer.register(simplejson.loads, ('application/json',))
+
+class JSONPEmitter(Emitter):
+    """
+    JSONP emitter, understands timestamps.
+    """
+    ALWAYS_200_OK = True
+
+    def render(self, request):
         cb = request.GET.get('callback', None)
         seria = simplejson.dumps(self.construct(), cls=DateTimeAwareJSONEncoder, ensure_ascii=False, indent=4)
 
@@ -393,8 +408,7 @@ class JSONEmitter(Emitter):
 
         return seria
 
-Emitter.register('json', JSONEmitter, 'application/json; charset=utf-8')
-Mimer.register(simplejson.loads, ('application/json',))
+Emitter.register('jsonp', JSONPEmitter, 'application/jsonp; charset=utf-8')
 
 class YAMLEmitter(Emitter):
     """

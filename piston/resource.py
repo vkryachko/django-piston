@@ -10,13 +10,34 @@ from django.db.models.query import QuerySet
 from django.http import Http404
 
 from emitters import Emitter
-from handler import typemapper
+from handler import typemapper, BaseHandler
 from doc import HandlerMethod
 from authentication import NoAuthentication
 from utils import coerce_put_post, FormValidationError, HttpStatusCode
 from utils import rc, format_error, translate_mime, MimerDataException
 
 CHALLENGE = object()
+
+class PistonException(Exception):
+    def __init__(self, status_code, message, headers=None):
+        self.status_code = status_code
+        self.message = message
+        self.headers = headers and headers or {}
+
+    def __unicode__(self):
+        return self.message
+
+class Response(object):
+    def __init__(self):
+        self.status_code = 200
+        self.error_code = None
+        self.error_message = ''
+        self.form_errors = {}
+        self.data = None
+        self.headers = {}
+
+    def transform_data(self):
+        return self.data
 
 class Resource(object):
     """
@@ -29,10 +50,11 @@ class Resource(object):
     callmap = { 'GET': 'read', 'POST': 'create',
                 'PUT': 'update', 'DELETE': 'delete' }
 
-    def __init__(self, handler, authentication=None):
+    def __init__(self, handler, authentication=None, response_class=None):
         if not callable(handler):
             raise AttributeError, "Handler not callable."
 
+        self.response_class = response_class is not None and response_class or Response
         self.handler = handler()
         self.csrf_exempt = getattr(self.handler, 'csrf_exempt', True)
 
@@ -65,15 +87,6 @@ class Resource(object):
 
         return em
 
-    def form_validation_response(self, e):
-        """
-        Method to return form validation error information.
-        You will probably want to override this in your own
-        `Resource` subclass.
-        """
-        resp = rc.BAD_REQUEST
-        resp.write(' '+str(e.form.errors))
-        return resp
 
     @property
     def anonymous(self):
@@ -111,84 +124,46 @@ class Resource(object):
 
         return actor, anonymous
 
+
     @vary_on_headers('Authorization')
     def __call__(self, request, *args, **kwargs):
-        """
-        NB: Sends a `Vary` header so we don't cache requests
-        that are different (OAuth stuff in `Authorization` header.)
-        """
-        rm = request.method.upper()
-
-        # Django's internal mechanism doesn't pick up
-        # PUT request, so we trick it a little here.
-        if rm == "PUT":
-            coerce_put_post(request)
-
-        actor, anonymous = self.authenticate(request, rm)
-
-        if anonymous is CHALLENGE:
-            return actor(request)
-        else:
-            handler = actor
-
-        # Translate nested datastructs into `request.data` here.
-        if rm in ('POST', 'PUT'):
-            try:
-                translate_mime(request)
-            except MimerDataException:
-                return rc.BAD_REQUEST
-            if not hasattr(request, 'data'):
-                if rm == 'POST':
-                    request.data = request.POST
-                else:
-                    request.data = request.PUT
-
-        if not rm in handler.allowed_methods:
-            return HttpResponseNotAllowed(handler.allowed_methods)
-
-        meth = getattr(handler, self.callmap.get(rm, ''), None)
-        if not meth:
-            raise Http404
-
         # Support emitter both through (?P<emitter_format>) and ?format=emitter.
         em_format = self.determine_emitter(request, *args, **kwargs)
-
         kwargs.pop('emitter_format', None)
 
-        # Clean up the request object a bit, since we might
-        # very well have `oauth_`-headers in there, and we
-        # don't want to pass these along to the handler.
-        request = self.cleanup_request(request)
-
-        try:
-            result = meth(request, *args, **kwargs)
-        except Exception, e:
-            result = self.error_handler(e, request, meth, em_format)
+        response = self.response_class()
 
         try:
             emitter, ct = Emitter.get(em_format)
-            fields = handler.fields
-
-            if hasattr(handler, 'list_fields') and isinstance(result, (list, tuple, QuerySet)):
-                fields = handler.list_fields
         except ValueError:
-            result = rc.BAD_REQUEST
-            result.content = "Invalid output format specified '%s'." % em_format
-            return result
+            response.status_code = rc['BAD_REQUEST'][1]
+            response.error_message = "Invalid output format specified '%s'." % em_format
 
-        status_code = 200
+        if not response.error_message:
+            meth = None
+            try:
+                handler, meth, fields, anonymous = self.process_request(request, response, *args, **kwargs)
+            except Exception, e:
+                handler, meth, fields, anonymous = None, None, (), False
+                self.error_handler(response, e, request, meth)
 
         # If we're looking at a response object which contains non-string
         # content, then assume we should use the emitter to format that
         # content
-        if isinstance(result, HttpResponse) and not result._is_string:
-            status_code = result.status_code
+        if isinstance(response.data, HttpResponse) and not response.data._is_string:
+            # TODO: fix this
+            response.status_code = response.data.status_code
             # Note: We can't use result.content here because that method attempts
             # to convert the content into a string which we don't want.
             # when _is_string is False _container is the raw data
-            result = result._container
+            response.data = response.data._container
 
-        srl = emitter(result, typemapper, handler, fields, anonymous)
+        data = response.transform_data()
+        srl = emitter(data, typemapper, handler, fields, anonymous)
+
+        status_code = response.status_code
+        if srl.ALWAYS_200_OK:
+            status_code = 200
 
         try:
             """
@@ -210,6 +185,72 @@ class Resource(object):
             return resp
         except HttpStatusCode, e:
             return e.response
+
+    def process_request(self, request, response, *args, **kwargs):
+        """
+        NB: Sends a `Vary` header so we don't cache requests
+        that are different (OAuth stuff in `Authorization` header.)
+        """
+        rm = request.method.upper()
+
+        # Django's internal mechanism doesn't pick up
+        # PUT request, so we trick it a little here.
+        if rm == "PUT":
+            coerce_put_post(request)
+
+        actor, anonymous = self.authenticate(request, rm)
+
+        result = None
+        if anonymous is CHALLENGE:
+            class ErrorHandler(BaseHandler):
+                def error(self, *args, **kwargs):
+                    pass
+
+            for func in self.callmap.values():
+                setattr(ErrorHandler, func, ErrorHandler.error)
+
+            handler = ErrorHandler()
+            meth = handler.error
+            fields = ()
+            response.data = actor(request)
+        else:
+            handler = actor
+            meth = None
+            fields = ()
+
+        if not response.data:
+            # Translate nested datastructs into `request.data` here.
+            if rm in ('POST', 'PUT'):
+                try:
+                    translate_mime(request)
+                except MimerDataException:
+                    raise PistonException(400, 'Bad Request')
+                if not hasattr(request, 'data'):
+                    if rm == 'POST':
+                        request.data = request.POST
+                    else:
+                        request.data = request.PUT
+
+            if not rm in handler.allowed_methods:
+                raise PistonException(405, 'Not Allowed', headers={'Allow': handler.allowed_methods})
+
+            meth = getattr(handler, self.callmap.get(rm, ''), None)
+            if not meth:
+                raise Http404
+
+            # Clean up the request object a bit, since we might
+            # very well have `oauth_`-headers in there, and we
+            # don't want to pass these along to the handler.
+            request = self.cleanup_request(request)
+
+            response.data = meth(request, *args, **kwargs)
+
+            fields = handler.fields
+
+            if hasattr(handler, 'list_fields') and isinstance(response.data, (list, tuple, QuerySet)):
+                fields = handler.list_fields
+
+        return handler, meth, fields, anonymous
 
     @staticmethod
     def cleanup_request(request):
@@ -245,16 +286,20 @@ class Resource(object):
         message.send(fail_silently=True)
 
 
-    def error_handler(self, e, request, meth, em_format):
+    def error_handler(self, response, e, request, meth):
         """
         Override this method to add handling of errors customized for your
         needs
         """
-        if isinstance(e, FormValidationError):
-            return self.form_validation_response(e)
-
-        elif isinstance(e, TypeError):
-            result = rc.BAD_REQUEST
+        response.status_code = 500
+        if isinstance(e, PistonException):
+            response.status_code = e.status_code
+            response.error_message = e.message
+            response.headers.update(e.headers)
+        elif isinstance(e, FormValidationError):
+            response.status_code = 400
+            response.form_errors = e.form_errors
+        elif isinstance(e, TypeError) and meth:
             hm = HandlerMethod(meth)
             sig = hm.signature
 
@@ -268,14 +313,12 @@ class Resource(object):
             if self.display_errors:
                 msg += '\n\nException was: %s' % str(e)
 
-            result.content = format_error(msg)
-            return result
+            response.error_message = format_error(msg)
         elif isinstance(e, Http404):
-            return rc.NOT_FOUND
-
+            response.status_code = 404
+            response.error_message = 'Not Found'
         elif isinstance(e, HttpStatusCode):
-            return e.response
-
+            response.error_message = e.response
         else:
             """
             On errors (like code errors), we'd like to be able to
@@ -296,7 +339,6 @@ class Resource(object):
             if self.email_errors:
                 self.email_exception(rep)
             if self.display_errors:
-                return HttpResponseServerError(
-                    format_error('\n'.join(rep.format_exception())))
+                response.error_message = format_error('\n'.join(rep.format_exception()))
             else:
                 raise
