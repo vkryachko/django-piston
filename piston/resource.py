@@ -308,7 +308,7 @@ class Resource(object):
             response.headers.update(e.headers)
         elif isinstance(e, FormValidationError):
             response.status_code = 400
-            response.form_errors = e.form_errors
+            response.form_errors = e.form.errors
         elif isinstance(e, TypeError) and meth:
             hm = HandlerMethod(meth)
             sig = hm.signature
