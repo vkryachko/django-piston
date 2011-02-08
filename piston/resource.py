@@ -37,7 +37,10 @@ class Response(object):
         self.headers = {}
 
     def transform_data(self):
-        return self.data
+        if self.error_message:
+            return self.error_message
+        else:
+            return self.data
 
 class EnhancedResponse(Response):
     def transform_data(self):
