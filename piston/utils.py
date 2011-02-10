@@ -160,7 +160,8 @@ def coerce_put_post(request):
     The try/except abominiation here is due to a bug
     in mod_python. This should fix it.
     """
-    if request.method == "PUT":
+    method = request.method
+    if method in ("PUT", "DELETE",):
         # Bug fix: if _load_post_and_files has already been called, for
         # example by middleware accessing request.POST, the below code to
         # pretend the request is a POST instead of a PUT will be too late
@@ -178,13 +179,13 @@ def coerce_put_post(request):
         try:
             request.method = "POST"
             request._load_post_and_files()
-            request.method = "PUT"
+            request.method = method
         except AttributeError:
             request.META['REQUEST_METHOD'] = 'POST'
             request._load_post_and_files()
-            request.META['REQUEST_METHOD'] = 'PUT'
+            request.META['REQUEST_METHOD'] = method
 
-        request.PUT = request.POST
+        setattr(request, method, request.POST)
 
 
 class MimerDataException(Exception):

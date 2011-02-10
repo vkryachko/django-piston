@@ -207,8 +207,8 @@ class Resource(object):
         rm = request.method.upper()
 
         # Django's internal mechanism doesn't pick up
-        # PUT request, so we trick it a little here.
-        if rm == "PUT":
+        # on non POST request, so we trick it a little here.
+        if rm in ("PUT", "DELETE",):
             coerce_put_post(request)
 
         actor, anonymous = self.authenticate(request, rm)
@@ -233,7 +233,7 @@ class Resource(object):
 
         if not response.data:
             # Translate nested datastructs into `request.data` here.
-            if rm in ('POST', 'PUT'):
+            if rm in ('POST', 'PUT', 'DELETE',):
                 try:
                     translate_mime(request)
                 except MimerDataException:
@@ -241,8 +241,10 @@ class Resource(object):
                 if not hasattr(request, 'data'):
                     if rm == 'POST':
                         request.data = request.POST
-                    else:
+                    elif rm == 'PUT':
                         request.data = request.PUT
+                    elif rm == 'DELETE':
+                        request.data = request.DELETE
 
             if not rm in handler.allowed_methods:
                 raise PistonException(405, 'Not Allowed', headers={'Allow': handler.allowed_methods})
