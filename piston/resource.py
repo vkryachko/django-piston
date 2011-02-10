@@ -81,6 +81,7 @@ class Resource(object):
         # Erroring
         self.email_errors = getattr(settings, 'PISTON_EMAIL_ERRORS', True)
         self.display_errors = getattr(settings, 'PISTON_DISPLAY_ERRORS', True)
+        self.display_traceback = getattr(settings, 'PISTON_DISPLAY_TRACEBACK', False)
         self.stream = getattr(settings, 'PISTON_STREAM_OUTPUT', False)
 
     def determine_emitter(self, request, *args, **kwargs):
@@ -293,7 +294,7 @@ class Resource(object):
         subject = "Piston crash report"
         html = reporter.get_traceback_html()
 
-        message = EmailMessage(settings.EMAIL_SUBJECT_PREFIX+subject,
+        message = EmailMessage(settings.EMAIL_SUBJECT_PREFIX + subject,
                                 html, settings.SERVER_EMAIL,
                                 [ admin[1] for admin in settings.ADMINS ])
 
@@ -343,7 +344,8 @@ class Resource(object):
             Parameters::
              - `PISTON_EMAIL_ERRORS`: Will send a Django formatted
                error email to people in `settings.ADMINS`.
-             - `PISTON_DISPLAY_ERRORS`: Will return a simple traceback
+             - `PISTON_DISPLAY_ERRORS`: Will return a simple message/full traceback
+               depending on `PISTON_DISPLAY_TRACEBACK`. Default is simple message
                to the caller, so he can tell you what error they got.
 
             If `PISTON_DISPLAY_ERRORS` is not enabled, the caller will
@@ -354,6 +356,9 @@ class Resource(object):
             if self.email_errors:
                 self.email_exception(rep)
             if self.display_errors:
-                response.error_message = format_error('\n'.join(rep.format_exception()))
+                if self.display_traceback:
+                    response.error_message = format_error('\n'.join(rep.format_exception()))
+                else:
+                    response.error_message = str(e)
             else:
                 raise
