@@ -27,6 +27,36 @@ class PistonException(Exception):
     def __unicode__(self):
         return self.message
 
+class PistonBadRequestException(PistonException):
+    def __init__(self, message=None, headers=None):
+        status_code = 400
+        message = message or 'Malformed or syntactically incorrect request'
+        super(PistonException, self).__init__(status_code, message, headers)
+
+class PistonUnauthorizedException(PistonException):
+    def __init__(self, message=None, headers=None):
+        status_code = 401
+        message = message or 'Request requires authentication'
+        super(PistonException, self).__init__(status_code, message, headers)
+
+class PistonForbiddenException(PistonException):
+    def __init__(self, message=None, headers=None):
+        status_code = 403
+        message = message or 'Request of specified resource is forbidden'
+        super(PistonException, self).__init__(status_code, message, headers)
+
+class PistonNotFoundException(PistonException):
+    def __init__(self, message=None, headers=None):
+        status_code = 404
+        message = message or 'Requested resource could not be located'
+        super(PistonException, self).__init__(status_code, message, headers)
+
+class PistonMethodException(PistonException):
+    def __init__(self, message=None, headers=None):
+        status_code = 405
+        message = message or 'Method not allowed on requested resource'
+        super(PistonException, self).__init__(status_code, message, headers)
+
 class Response(object):
     def __init__(self):
         self.status_code = 200
@@ -150,8 +180,7 @@ class Resource(object):
         try:
             emitter, ct = Emitter.get(em_format)
         except ValueError:
-            response.status_code = rc['BAD_REQUEST'][1]
-            response.error_message = "Invalid output format specified '%s'." % em_format
+            raise PistonBadRequestException("Invalid output format specified '%s'." % em_format)
 
         if not response.error_message:
             meth = None
@@ -238,7 +267,7 @@ class Resource(object):
                 try:
                     translate_mime(request)
                 except MimerDataException:
-                    raise PistonException(400, 'Bad Request')
+                    raise PistonBadRequestException
                 if not hasattr(request, 'data'):
                     if rm == 'POST':
                         request.data = request.POST
@@ -248,11 +277,11 @@ class Resource(object):
                         request.data = request.DELETE
 
             if not rm in handler.allowed_methods:
-                raise PistonException(405, 'Not Allowed', headers={'Allow': handler.allowed_methods})
+                raise PistonMethodException(headers={'Allow': handler.allowed_methods})
 
             meth = getattr(handler, self.callmap.get(rm, ''), None)
             if not meth:
-                raise Http404
+                raise PistonNotFoundException
 
             # Clean up the request object a bit, since we might
             # very well have `oauth_`-headers in there, and we
@@ -308,7 +337,7 @@ class Resource(object):
         needs
         """
         response.status_code = 500
-        if isinstance(e, PistonException):
+        if isinstance(e, (PistonException, PistonBadRequestException, PistonForbiddenException, PistonMethodException, PistonNotFoundException, PistonUnauthorizedException)):
             response.status_code = e.status_code
             response.error_message = e.message
             response.headers.update(e.headers)
@@ -330,6 +359,7 @@ class Resource(object):
                 msg += '\n\nException was: %s' % str(e)
 
             response.error_message = format_error(msg)
+        # TODO: As we start using Piston exceptions, the following 2 errors can be phased out
         elif isinstance(e, Http404):
             response.status_code = 404
             response.error_message = 'Not Found'
