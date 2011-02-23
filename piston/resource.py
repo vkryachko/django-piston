@@ -28,34 +28,42 @@ class PistonException(Exception):
         return self.message
 
 class PistonBadRequestException(PistonException):
+    status_code = 400
+    message = 'Malformed or syntactically incorrect request'
+
     def __init__(self, message=None, headers=None):
-        status_code = 400
-        message = message or 'Malformed or syntactically incorrect request'
-        super(PistonException, self).__init__(status_code, message, headers)
+        message = message or self.message
+        super(PistonBadRequestException, self).__init__(self.status_code, message, headers)
 
 class PistonUnauthorizedException(PistonException):
+    status_code = 401
+    message = 'Request requires authentication'
+
     def __init__(self, message=None, headers=None):
-        status_code = 401
-        message = message or 'Request requires authentication'
-        super(PistonException, self).__init__(status_code, message, headers)
+        message = message or self.message
+        super(PistonUnauthorizedException, self).__init__(self.status_code, message, headers)
 
 class PistonForbiddenException(PistonException):
+    status_code = 403
+    message = 'Request of specified resource is forbidden'
+
     def __init__(self, message=None, headers=None):
-        status_code = 403
-        message = message or 'Request of specified resource is forbidden'
-        super(PistonException, self).__init__(status_code, message, headers)
+        message = message or self.message
+        super(PistonForbiddenException, self).__init__(self.status_code, message, headers)
 
 class PistonNotFoundException(PistonException):
+    status_code = 404
+    message = 'Requested resource could not be located'
     def __init__(self, message=None, headers=None):
-        status_code = 404
-        message = message or 'Requested resource could not be located'
-        super(PistonException, self).__init__(status_code, message, headers)
+        message = message or self.message
+        super(PistonNotFoundException, self).__init__(self.status_code, message, headers)
 
 class PistonMethodException(PistonException):
+    status_code = 405
+    message = 'Method not allowed on requested resource'
     def __init__(self, message=None, headers=None):
-        status_code = 405
-        message = message or 'Method not allowed on requested resource'
-        super(PistonException, self).__init__(status_code, message, headers)
+        message = message or self.message
+        super(PistonMethodException, self).__init__(self.status_code, message, headers)
 
 class Response(object):
     def __init__(self):
