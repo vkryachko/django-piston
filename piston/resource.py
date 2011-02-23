@@ -272,19 +272,19 @@ class Resource(object):
         if not response.data:
             # Translate nested datastructs into `request.data` here.
             if rm in ('POST', 'PUT', 'DELETE',):
-                if request.raw_post_data:
-                    try:
-                        translate_mime(request)
-                    except MimerDataException:
-                        raise PistonBadRequestException('Error deserializing request data.')
-                    if not hasattr(request, 'data'):
-                        if rm == 'POST':
-                            request.data = request.POST
-                        elif rm == 'PUT':
-                            request.data = request.PUT
-                        elif rm == 'DELETE':
-                            request.data = request.DELETE
-                else:
+                try:
+                    translate_mime(request)
+                except MimerDataException:
+                    raise PistonBadRequestException('Error deserializing request data.')
+                if not hasattr(request, 'data'):
+                    if rm == 'POST':
+                        request.data = request.POST
+                    elif rm == 'PUT':
+                        request.data = request.PUT
+                    elif rm == 'DELETE':
+                        request.data = request.DELETE
+
+                if not request.data:
                     # In the case where no data is provided, default to an empty
                     # dictionary. Many serializers do not deal with empty string data
                     # for deserialization.
