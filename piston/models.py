@@ -3,7 +3,6 @@ import urllib, time, urlparse
 # Django imports
 from django.db.models.signals import post_save, post_delete
 from django.db import models
-from django.contrib import admin
 from django.contrib.auth.models import User
 from django.core.mail import send_mail, mail_admins
 
@@ -145,8 +144,3 @@ class Token(models.Model):
 # Attach our signals
 post_save.connect(consumer_post_save, sender=Consumer)
 post_delete.connect(consumer_post_delete, sender=Consumer)
-
-# Attach Models to Admin
-admin.site.register(Nonce)
-admin.site.register(Consumer)
-admin.site.register(Token)
