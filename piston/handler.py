@@ -8,15 +8,46 @@ typemapper = { }
 handler_tracker = [ ]
 
 class PistonView(object):
+    fields = []
+    serialized = False # marker to be overwritten to tell Piston that this view has already been serialized
+    """
     def __new__(cls, data, *args, **kwargs):
         if isinstance(data, (list, tuple)):
             return [ cls.__new__(cls, x, *args, **kwargs) for x in data ]
         return object.__new__(cls, data, *args, **kwargs)
-
+    """
     def __init__(self, data):
         self.data = data
 
+    def get_value(self, field):
+        # should be implemented by the subclass if this element in 'fields' is not an attribute of the dict
+        return None
+
     def render(self):
+        if isinstance(self.data, (list, tuple)):
+            result = []
+            for element in self.data:
+                class TempView(PistonView):
+                    fields = self.fields
+                result.append(TempView(element))
+            return result        
+        elif isinstance(self.data, (dict, object)):
+            result = {}
+            for field in self.fields:
+                if isinstance(field, (list, tuple)):
+                    result[field[0]] = field[1](self.data[field[0]])
+                elif isinstance(field, str):
+                    if isinstance(self.data, dict):
+                        try:
+                            result[field] = self.data[field]
+                        except KeyError:
+                            result[field] = self.get_value(field)
+                    elif isinstance(self.data, object):
+                        try:
+                            result[field] = getattr(self.data, field)
+                        except AttributeError:
+                            result[field] = self.get_value(field)
+            return result
         return {}
 
     def __emittable__(self):
