@@ -7,6 +7,21 @@ from django.conf import settings
 typemapper = { }
 handler_tracker = [ ]
 
+class PistonView(object):
+    def __new__(cls, data, *args, **kwargs):
+        if isinstance(data, (list, tuple)):
+            return [ cls.__new__(cls, x, *args, **kwargs) for x in data ]
+        return object.__new__(cls, data, *args, **kwargs)
+
+    def __init__(self, data):
+        self.data = data
+
+    def render(self):
+        return {}
+
+    def __emittable__(self):
+        return self.render()
+
 class HandlerMetaClass(type):
     """
     Metaclass that keeps a registry of class -> handler
