@@ -63,8 +63,10 @@ class PistonView(object):
         for field in self.fields:
             if isinstance(field, basestring):
                 field = Field(field)
-
-            result[field.destination] = field.get_value(self.data)
+            value = field.get_value(self.data)
+            # skip if field is None and not required
+            if not (value is None and not field.required):
+                result[field.destination] = value
         return result
 
     def __emittable__(self):
