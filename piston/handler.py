@@ -51,7 +51,7 @@ class PistonView(object):
     def __new__(cls, data, *args, **kwargs):
         if isinstance(data, (list, tuple)):
             return [ cls.__new__(cls, x, *args, **kwargs) for x in data ]
-        obj = object.__new__(cls, data, *args, **kwargs)
+        obj = object.__new__(cls)
         obj.__init__(data, *args, **kwargs)
         return obj
 
