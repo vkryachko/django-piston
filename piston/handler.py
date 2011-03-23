@@ -27,14 +27,14 @@ class Field(object):
                         value = value()
                     except TypeError:
                         if self.required:
-                            raise
+                            raise TypeError("%s is a required field but not in %s." % name, value)
                         return None
             except AttributeError:
                 try:
                     value = value[name]
                 except KeyError:
                     if self.required:
-                        raise
+                        raise KeyError("%s is a required field but not in %s" % (name, value))
                     return None
 
         if self.view_cls:
