@@ -1,26 +1,117 @@
+import copy
 import warnings
 
 from utils import rc
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.conf import settings
+from django.utils.datastructures import SortedDict
 
 typemapper = { }
 handler_tracker = [ ]
 
-class PistonView(object):
+class Field(object):
+    def __init__(self, name, view_cls=None, destination=None, required=True):
+        self.name = name
+        self.name_parts = name.split('.')
+        self.required = required
+        self.view_cls = view_cls
+        self.destination = destination or name
+        if destination is None and '.' in name:
+            raise ValueError('Cannot specify a non top-level attribute (%s) and not specify a destination name.' % name)
+
+    def get_value(self, obj):
+        value = obj
+        for name in self.name_parts:
+            try:
+                value = getattr(value, name)
+                # Might be attribute or callable
+                if callable(value):
+                    try:
+                        value = value()
+                    except TypeError:
+                        if self.required:
+                            raise TypeError("%s is a required field but not in %s." % name, value)
+                        return None
+            except AttributeError:
+                try:
+                    value = value[name]
+                except KeyError:
+                    if self.required:
+                        raise KeyError("%s is a required field but not in %s" % (name, value))
+                    return None
+
+        if self.view_cls:
+            value = self.view_cls(value)
+
+        return value
+
+class PistonViewMetaclass(type):
+    """
+    Metaclass that converts Field attributes to a dictionary called
+    'base_fields', taking into account parent class 'base_fields' as well.
+    """
+    def __new__(cls, name, bases, attrs):
+        super_new = super(PistonViewMetaclass, cls).__new__
+        parents = [b for b in bases if isinstance(b, PistonViewMetaclass)]
+        if not parents:
+            # If this isn't a subclass of PistonViewMetaclass, don't do anything special.
+            return super_new(cls, name, bases, attrs)
+
+        base_fields = SortedDict()
+        for parent_cls in parents:
+            for field in getattr(parent_cls, 'base_fields', []):
+                # if the superclass has defined a field, don't add
+                # that field from the base class since inspect.getmro
+                # lists classes in order from super to base
+                if field.name not in base_fields:
+                    base_fields[field.name] = field
+
+        for field in attrs.get('fields', []):
+            if isinstance(field, basestring):
+                field = Field(field)
+            base_fields[field.name] = field
+
+        attrs['base_fields'] = base_fields.values()
+
+        new_class = super_new(cls, name, bases, attrs)
+        return new_class
+
+class BasePistonView(object):
     def __new__(cls, data, *args, **kwargs):
         if isinstance(data, (list, tuple)):
             return [ cls.__new__(cls, x, *args, **kwargs) for x in data ]
-        return object.__new__(cls, data, *args, **kwargs)
+        obj = object.__new__(cls)
+        obj.__init__(data, *args, **kwargs)
+        return obj
 
     def __init__(self, data):
         self.data = data
+        self.fields = copy.deepcopy(self.base_fields)
 
     def render(self):
-        return {}
+        result = {}
+        for field in self.fields:
+            value = field.get_value(self.data)
+            # skip if field is None and not required
+            if not (value is None and not field.required):
+                destination = result
+                keys = field.destination.split('.')
+                sub_keys, key = keys[:-1], keys[-1]
+                for sub_key in sub_keys:
+                    try:
+                        destination = destination[sub_key]
+                    except KeyError:
+                        destination[sub_key] = {}
+                        destination = destination[sub_key]
+
+                destination[key] = value
+        return result
 
     def __emittable__(self):
         return self.render()
+
+class PistonView(BasePistonView):
+    __metaclass__ = PistonViewMetaclass
 
 class HandlerMetaClass(type):
     """
