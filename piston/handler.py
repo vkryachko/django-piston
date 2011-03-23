@@ -1,4 +1,5 @@
 import copy
+import types
 import warnings
 
 from utils import rc
@@ -25,7 +26,7 @@ class Field(object):
             try:
                 value = getattr(value, name)
                 # Might be attribute or callable
-                if callable(value):
+                if type(value) in (types.FunctionType, types.MethodType):
                     try:
                         value = value()
                     except TypeError:
