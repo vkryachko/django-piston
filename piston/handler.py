@@ -1,9 +1,10 @@
-import inspect
+import copy
 import warnings
 
 from utils import rc
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
 from django.conf import settings
+from django.utils.datastructures import SortedDict
 
 typemapper = { }
 handler_tracker = [ ]
@@ -44,12 +45,38 @@ class Field(object):
 
         return value
 
-class PistonView(object):
-    fields = []
+class PistonViewMetaclass(type):
+    """
+    Metaclass that converts Field attributes to a dictionary called
+    'base_fields', taking into account parent class 'base_fields' as well.
+    """
+    def __new__(cls, name, bases, attrs):
+        super_new = super(PistonViewMetaclass, cls).__new__
+        parents = [b for b in bases if isinstance(b, PistonViewMetaclass)]
+        if not parents:
+            # If this isn't a subclass of PistonViewMetaclass, don't do anything special.
+            return super_new(cls, name, bases, attrs)
 
-    # marker to be overwritten to tell Piston that this view has already been serialized
-    serialized = False
+        base_fields = SortedDict()
+        for parent_cls in parents:
+            for field in getattr(parent_cls, 'base_fields', []):
+                # if the superclass has defined a field, don't add
+                # that field from the base class since inspect.getmro
+                # lists classes in order from super to base
+                if field.name not in base_fields:
+                    base_fields[field.name] = field
 
+        for field in attrs.get('fields', []):
+            if isinstance(field, basestring):
+                field = Field(field)
+            base_fields[field.name] = field
+
+        attrs['base_fields'] = base_fields.values()
+
+        new_class = super_new(cls, name, bases, attrs)
+        return new_class
+
+class BasePistonView(object):
     def __new__(cls, data, *args, **kwargs):
         if isinstance(data, (list, tuple)):
             return [ cls.__new__(cls, x, *args, **kwargs) for x in data ]
@@ -59,33 +86,11 @@ class PistonView(object):
 
     def __init__(self, data):
         self.data = data
+        self.fields = copy.deepcopy(self.base_fields)
 
     def render(self):
         result = {}
-        
-        # make sure you're getting the fields list from the superclasses as well
-        fields = []
-        # inventory of the Field names being processed so far so that a
-        # superclass can overwrite a Field definition in the base class
-        field_inventory = {}
-        for cls in inspect.getmro(self.__class__):
-            if hasattr(cls, 'fields'):
-                for field in cls.fields:
-                    if isinstance(field, basestring):
-                        field_name = field
-                    else:
-                        field_name = field.name
-
-                    # if the superclass has defined a field, don't add
-                    # that field from the base class since inspect.getmro
-                    # lists classes in order from super to base
-                    if not field_inventory.has_key(field_name):
-                        field_inventory[field_name] = True
-                        fields.append(field)
-        
-        for field in fields:
-            if isinstance(field, basestring):
-                field = Field(field)
+        for field in self.fields:
             value = field.get_value(self.data)
             # skip if field is None and not required
             if not (value is None and not field.required):
@@ -104,6 +109,9 @@ class PistonView(object):
 
     def __emittable__(self):
         return self.render()
+
+class PistonView(BasePistonView):
+    __metaclass__ = PistonViewMetaclass
 
 class HandlerMetaClass(type):
     """
