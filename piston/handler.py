@@ -7,59 +7,65 @@ from django.conf import settings
 typemapper = { }
 handler_tracker = [ ]
 
-class NestedView(object):
-    def __init__(self, view, field_name):
-        self.view = view
-        self.field_name = field_name
+class Field(object):
+    def __init__(self, name, view_cls=None, destination=None, required=True):
+        self.name_parts = name.split('.')
+        self.required = required
+        self.view_cls = view_cls
+        self.destination = destination or name
+        if destination is None and '.' in name:
+            raise ValueError('Cannot specify a non top-level attribute (%s) and not specify a destination name.' % name)
+
+    def get_value(self, obj):
+        value = obj
+        for name in self.name_parts:
+            try:
+                value = getattr(value, name)
+                # Might be attribute or callable
+                if callable(value):
+                    try:
+                        value = value()
+                    except TypeError:
+                        if self.required:
+                            raise
+                        return None
+            except AttributeError:
+                try:
+                    value = value[name]
+                except KeyError:
+                    if self.required:
+                        raise
+                    return None
+
+        if self.view_cls:
+            value = self.view_cls(value)
+
+        return value
 
 class PistonView(object):
     fields = []
-    serialized = False # marker to be overwritten to tell Piston that this view has already been serialized
-    
-    """
+
+    # marker to be overwritten to tell Piston that this view has already been serialized
+    serialized = False
+
     def __new__(cls, data, *args, **kwargs):
         if isinstance(data, (list, tuple)):
             return [ cls.__new__(cls, x, *args, **kwargs) for x in data ]
-        return object.__new__(cls, data, *args, **kwargs)
-    """
-    
+        obj = object.__new__(cls, data, *args, **kwargs)
+        obj.__init__(data, *args, **kwargs)
+        return obj
+
     def __init__(self, data):
         self.data = data
 
-    def get_custom_value(self, field):
-        # should be implemented by the subclass if this element in 'fields' is not an attribute of the dict
-        return None
-    
-    def get_value(self, field):
-        if isinstance(self.data, dict):
-            try:
-                return self.data[field]
-            except KeyError:
-                return self.get_custom_value(field)
-        else: # this is an object
-            try:
-                return getattr(self.data, field)
-            except AttributeError:
-                return self.get_custom_value(field)
-
     def render(self):
-        if isinstance(self.data, (list, tuple)):
-            result = []
-            for element in self.data:
-                class TempView(PistonView):
-                    fields = self.fields
-                result.append(TempView(element))
-            return result
-        
         result = {}
         for field in self.fields:
-            if isinstance(field, NestedView):
-                nestedview = field
-                result[nestedview.field_name] = nestedview.view(self.get_value(nestedview.field_name))
-            elif isinstance(field, str):
-                result[field] = self.get_value(field)
+            if isinstance(field, basestring):
+                field = Field(field)
+
+            result[field.destination] = field.get_value(self.data)
         return result
-    
 
     def __emittable__(self):
         return self.render()
