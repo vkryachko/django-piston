@@ -66,7 +66,16 @@ class PistonView(object):
             value = field.get_value(self.data)
             # skip if field is None and not required
             if not (value is None and not field.required):
-                result[field.destination] = value
+                # 2 destinations of 'a.b', 'a.c' should return {'a': {'b': 'x', {'c': 'y'}}}
+                split_destination = field.destination.split('.')
+                if len(split_destination) == 2 and split_destination[1]:
+                    left, right = split_destination
+                    if result.has_key(left):
+                        result[left][right] = value
+                    else:
+                        result[left] = {right: value}
+                else:
+                    result[field.destination] = value
         return result
 
     def __emittable__(self):
