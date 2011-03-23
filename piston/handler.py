@@ -1,3 +1,4 @@
+import inspect
 import warnings
 
 from utils import rc
@@ -9,6 +10,7 @@ handler_tracker = [ ]
 
 class Field(object):
     def __init__(self, name, view_cls=None, destination=None, required=True):
+        self.name = name
         self.name_parts = name.split('.')
         self.required = required
         self.view_cls = view_cls
@@ -60,7 +62,28 @@ class PistonView(object):
 
     def render(self):
         result = {}
-        for field in self.fields:
+        
+        # make sure you're getting the fields list from the superclasses as well
+        fields = []
+        # inventory of the Field names being processed so far so that a
+        # superclass can overwrite a Field definition in the base class
+        field_inventory = {}
+        for cls in inspect.getmro(self.__class__):
+            if hasattr(cls, 'fields'):
+                for field in cls.fields:
+                    if isinstance(field, basestring):
+                        field_name = field
+                    else:
+                        field_name = field.name
+
+                    # if the superclass has defined a field, don't add
+                    # that field from the base class since inspect.getmro
+                    # lists classes in order from super to base
+                    if not field_inventory.has_key(field_name):
+                        field_inventory[field_name] = True
+                        fields.append(field)
+        
+        for field in fields:
             if isinstance(field, basestring):
                 field = Field(field)
             value = field.get_value(self.data)
