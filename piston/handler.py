@@ -11,11 +11,12 @@ typemapper = { }
 handler_tracker = [ ]
 
 class Field(object):
-    def __init__(self, name, view_cls=None, destination=None, required=True):
+    def __init__(self, name, view_cls=None, destination=None, required=True, iterable_view_cls=False):
         self.name = name
         self.name_parts = name.split('.')
         self.required = required
         self.view_cls = view_cls
+        self.iterable_view_cls = iterable_view_cls
         self.destination = destination or name
         if destination is None and '.' in name:
             raise ValueError('Cannot specify a non top-level attribute (%s) and not specify a destination name.' % name)
@@ -41,8 +42,11 @@ class Field(object):
                         raise KeyError("%s is a required field but not in %s" % (name, value))
                     return None
 
-        if self.view_cls:
-            value = self.view_cls(value)
+        if value and self.view_cls:
+            if self.iterable_view_cls:
+                value = [self.view_cls(x) for x in value]
+            else:
+                value = self.view_cls(value)
 
         return value
 
