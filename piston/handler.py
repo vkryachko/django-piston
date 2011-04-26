@@ -37,7 +37,7 @@ class Field(object):
             except AttributeError:
                 try:
                     value = value[name]
-                except KeyError:
+                except (KeyError, TypeError):
                     if self.required:
                         raise KeyError("%s is a required field but not in %s" % (name, value))
                     return None
