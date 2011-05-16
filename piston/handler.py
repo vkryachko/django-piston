@@ -42,7 +42,7 @@ class Field(object):
                         raise KeyError("%s is a required field but not in %s" % (name, value))
                     return None
 
-        if value and self.view_cls:
+        if value is not None and self.view_cls:
             if self.iterable_view_cls:
                 value = [self.view_cls(x) for x in value]
             else:
