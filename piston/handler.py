@@ -11,12 +11,12 @@ typemapper = { }
 handler_tracker = [ ]
 
 class Field(object):
-    def __init__(self, name, view_cls=None, destination=None, required=True, iterable_view_cls=False):
+    def __init__(self, name, xform_obj=None, destination=None, required=True, iterable_xform_obj=False):
         self.name = name
-        self.name_parts = name.split('.')
+        self.name_parts = [x for x in name.split('.') if x]
         self.required = required
-        self.view_cls = view_cls
-        self.iterable_view_cls = iterable_view_cls
+        self.xform_obj = xform_obj
+        self.iterable_xform_obj = iterable_xform_obj
         self.destination = destination or name
         if destination is None and '.' in name:
             raise ValueError('Cannot specify a non top-level attribute (%s) and not specify a destination name.' % name)
@@ -42,11 +42,11 @@ class Field(object):
                         raise KeyError("%s is a required field but not in %s" % (name, value))
                     return None
 
-        if value is not None and self.view_cls:
-            if self.iterable_view_cls:
-                value = [self.view_cls(x) for x in value]
+        if value is not None and self.xform_obj:
+            if self.iterable_xform_obj:
+                value = [self.xform_obj(x) for x in value]
             else:
-                value = self.view_cls(value)
+                value = self.xform_obj(value)
 
         return value
 
@@ -68,13 +68,13 @@ class PistonViewMetaclass(type):
                 # if the superclass has defined a field, don't add
                 # that field from the base class since inspect.getmro
                 # lists classes in order from super to base
-                if field.name not in base_fields:
-                    base_fields[field.name] = field
+                if field.destination not in base_fields:
+                    base_fields[field.destination] = field
 
         for field in attrs.get('fields', []):
             if isinstance(field, basestring):
                 field = Field(field)
-            base_fields[field.name] = field
+            base_fields[field.destination] = field
 
         attrs['base_fields'] = base_fields.values()
 
