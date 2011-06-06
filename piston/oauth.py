@@ -360,6 +360,7 @@ class OAuthRequest(object):
 
     def _split_url_string(param_str):
         """Turn URL string into parameters."""
+        # NOTE: Keep blank values to allow 2-legged OAuth request
         parameters = cgi.parse_qs(param_str, keep_blank_values=True)
         for k, v in parameters.iteritems():
             parameters[k] = urllib.unquote(v[0])
@@ -493,13 +494,16 @@ class OAuthServer(object):
 
     def _get_token(self, oauth_request, token_type='access'):
         """Try to find the token for the provided request token key."""
-        
+        # NOTE: OAuth standards specify that a 2-legged request must be accompanied by an empty token
+        # Following procedure will raise errors properly in absense of a blank token  
         token_field = oauth_request.get_parameter('oauth_token')
 
-        if not token_field:
-            # TODO: Figure out a way to distinguish 2-legged from 3-legged. Allow challenges for 3-legged scenario by raising OAuthError
+        # Check for blank token
+        if token_field == '':
+            # 2-legged request
             token = AnonymousToken(token_type)
         else:
+            # 3-legged request
             token = self.data_store.lookup_token(token_type, token_field)
 
         return token
