@@ -1,15 +1,18 @@
 import time
-from django.http import HttpResponseNotAllowed, HttpResponseForbidden, HttpResponse, HttpResponseBadRequest
-from django.core.urlresolvers import reverse
-from django.core.cache import cache
-from django import get_version as django_version
-from django.core.mail import send_mail, mail_admins
-from django.conf import settings
-from django.utils.translation import ugettext as _
-from django.template import loader, TemplateDoesNotExist
-from decorator import decorator
 
 from datetime import datetime, timedelta
+from decorator import decorator
+
+from django import get_version as django_version
+from django.conf import settings
+from django.contrib.auth.models import AnonymousUser
+from django.core.urlresolvers import reverse
+from django.core.cache import cache
+from django.core.mail import send_mail, mail_admins
+from django.http import HttpResponseNotAllowed, HttpResponseForbidden, HttpResponse, HttpResponseBadRequest
+from django.template import loader, TemplateDoesNotExist
+from django.utils.translation import ugettext as _
+
 
 __version__ = '0.2.3rc1'
 
@@ -81,6 +84,24 @@ class FormValidationError(Exception):
 class HttpStatusCode(Exception):
     def __init__(self, response):
         self.response = response
+
+class AnonymousToken(object):
+    def __init__(self, token_type):
+        from piston.models import Token
+        self.user = AnonymousUser()
+        if token_type == 'request':
+            self.token_type = Token.REQUEST
+        elif token_type == 'access':
+            self.token_type = Token.ACCESS
+
+        self.consumer = None
+        self.key = ''
+        self.secret = ''
+        self.is_approved = True
+
+    def is_anonymous(self):
+        return True
+
 
 def validate(v_form, operation='POST'):
     @decorator

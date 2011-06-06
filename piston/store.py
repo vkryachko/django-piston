@@ -3,6 +3,7 @@ import oauth
 from models import Nonce, Token, Consumer
 from models import generate_random, VERIFIER_SIZE
 
+
 class DataStore(oauth.OAuthDataStore):
     """Layer between Python OAuth and Django database."""
     def __init__(self, oauth_request):
@@ -30,7 +31,7 @@ class DataStore(oauth.OAuthDataStore):
             return None
 
     def lookup_nonce(self, oauth_consumer, oauth_token, nonce):
-        if oauth_token is None:
+        if oauth_token.is_anonymous():
             return None
         nonce, created = Nonce.objects.get_or_create(consumer_key=oauth_consumer.key,
                                                      token_key=oauth_token.key,
