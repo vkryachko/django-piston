@@ -30,6 +30,8 @@ import urlparse
 import hmac
 import binascii
 
+from piston.utils import AnonymousToken
+
 
 VERSION = '1.0' # Hi Blaine!
 HTTP_METHOD = 'GET'
@@ -358,7 +360,7 @@ class OAuthRequest(object):
 
     def _split_url_string(param_str):
         """Turn URL string into parameters."""
-        parameters = cgi.parse_qs(param_str, keep_blank_values=False)
+        parameters = cgi.parse_qs(param_str, keep_blank_values=True)
         for k, v in parameters.iteritems():
             parameters[k] = urllib.unquote(v[0])
         return parameters
@@ -434,6 +436,11 @@ class OAuthServer(object):
 
         # Get the access token.
         token = self._get_token(oauth_request, 'access')
+
+        if token.is_anonymous():
+            # Update consumer
+            token.consumer = consumer
+
         self._check_signature(oauth_request, consumer, token)
         parameters = oauth_request.get_nonoauth_parameters()
         return consumer, token, parameters
@@ -486,10 +493,14 @@ class OAuthServer(object):
 
     def _get_token(self, oauth_request, token_type='access'):
         """Try to find the token for the provided request token key."""
+        
         token_field = oauth_request.get_parameter('oauth_token')
-        token = self.data_store.lookup_token(token_type, token_field)
-        if not token:
-            raise OAuthError('Invalid %s token: %s' % (token_type, token_field))
+
+        if not token_field:
+            token = AnonymousToken(token_type)
+        else:
+            token = self.data_store.lookup_token(token_type, token_field)
+
         return token
 
     def _get_verifier(self, oauth_request):
@@ -619,9 +630,10 @@ class OAuthSignatureMethod_HMAC_SHA1(OAuthSignatureMethod):
         )
 
         key = '%s&' % escape(consumer.secret)
-        if token:
+        if not token.is_anonymous():
             key += escape(token.secret)
         raw = '&'.join(sig)
+
         return key, raw
 
     def build_signature(self, oauth_request, consumer, token):
@@ -649,7 +661,7 @@ class OAuthSignatureMethod_PLAINTEXT(OAuthSignatureMethod):
     def build_signature_base_string(self, oauth_request, consumer, token):
         """Concatenates the consumer key and secret."""
         sig = '%s&' % escape(consumer.secret)
-        if token:
+        if not token.is_anonymous():
             sig = sig + escape(token.secret)
         return sig, sig
 

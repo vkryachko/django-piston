@@ -93,6 +93,9 @@ class Token(models.Model):
     def __unicode__(self):
         return u"%s Token %s for %s" % (self.get_token_type_display(), self.key, self.consumer)
 
+    def is_anonymous(self):
+        return False
+
     def to_string(self, only_key=False):
         token_dict = {
             'oauth_token': self.key,
