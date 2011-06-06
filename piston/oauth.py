@@ -497,6 +497,7 @@ class OAuthServer(object):
         token_field = oauth_request.get_parameter('oauth_token')
 
         if not token_field:
+            # TODO: Figure out a way to distinguish 2-legged from 3-legged. Allow challenges for 3-legged scenario by raising OAuthError
             token = AnonymousToken(token_type)
         else:
             token = self.data_store.lookup_token(token_type, token_field)
