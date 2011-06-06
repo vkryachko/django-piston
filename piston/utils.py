@@ -90,13 +90,14 @@ class AnonymousToken(object):
         from piston.models import Token
         self.user = AnonymousUser()
         if token_type == 'request':
-            self.type = Token.REQUEST
+            self.token_type = Token.REQUEST
         elif token_type == 'access':
-            self.type = Token.ACCESS
+            self.token_type = Token.ACCESS
 
         self.consumer = None
         self.key = ''
         self.secret = ''
+        self.is_approved = True
 
     def is_anonymous(self):
         return True
