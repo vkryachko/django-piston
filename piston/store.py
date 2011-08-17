@@ -28,7 +28,7 @@ class DataStore(oauth.OAuthDataStore):
                                                    token_type=token_type)
             return self.request_token
         except Token.DoesNotExist:
-            return None
+            raise
 
     def lookup_nonce(self, oauth_consumer, oauth_token, nonce):
         if oauth_token.is_anonymous():
