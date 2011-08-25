@@ -390,7 +390,8 @@ class JSONEmitter(Emitter):
         return seria
 
 Emitter.register('json', JSONEmitter, 'application/json; charset=utf-8')
-Mimer.register(simplejson.loads, ('application/json',))
+# Our json decoder should handle empty data by returning None, not raising a decode exception.
+Mimer.register(lambda s: s and simplejson.loads(s) or None, ('application/json',))
 
 class JSONPEmitter(Emitter):
     """
