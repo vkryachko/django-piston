@@ -72,7 +72,7 @@ One of the major new features added to piston by PBS Education is the PistonView
 .. If the object has a class member of type list/ tuple/ set of other objects (homogenous), you can assign other PistonViews to render them
 
 
-views/piston.py:: python
+views/piston.py::
 
     import datetime
     from piston.handler import PistonView, Field
@@ -119,7 +119,7 @@ views/piston.py:: python
 
 
 Let's also write a PaginationView while we're at it.
-It takes the django page object and some relevant information:: python 
+It takes the django page object and some relevant information:: 
 
     from piston.handler import PistonView, Field
 
@@ -138,7 +138,7 @@ It takes the django page object and some relevant information:: python
 
 Now let's write some Piston handlers.
 
-handlers.py:: python
+handlers.py::
 
     from piston.handler import BaseHandler
     from piston.resource import PistonNotFoundException
@@ -208,7 +208,7 @@ Let's add some cool stuff:
 * A new Oauth authentication handler
 
 
-utils.py:: python
+utils.py::
 
     from django.conf.urls.defaults import url as django_url
     from piston import resource
@@ -228,7 +228,7 @@ utils.py:: python
         return django_url(pattern, *args, **kwargs)
 
 
-auth.py:: python
+auth.py::
 
     from django.conf import settings
     from django.http import HttpResponse
@@ -255,7 +255,7 @@ auth.py:: python
             return False
 
 
-Finally urls.py:: python
+Finally urls.py::
 
     from django.conf.urls.defaults import patterns
 
