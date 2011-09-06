@@ -4,7 +4,7 @@
 
 :Info: piston is a REST API framework for use with django projects
 :Keywords: REST, API, django
-:Original Documentation: https://bitbucket.org/jespern/django-piston/wiki/Home
+:Original Doc: https://bitbucket.org/jespern/django-piston/wiki/Home
 
 Changes in PBS Education Version
 ================================
@@ -72,7 +72,8 @@ One of the major new features added to piston by PBS Education is the PistonView
 .. If the object has a class member of type list/ tuple/ set of other objects (homogenous), you can assign other PistonViews to render them
 
 
-views/piston.py::
+views/piston.py
+---------------
 
     import datetime
     from piston.handler import PistonView, Field
@@ -135,6 +136,9 @@ It takes the django page object and some relevant information::
                 Field('end_index', destination='end'),
                 ]
 
+
+Handlers
+--------
 
 Now let's write some Piston handlers.
 
@@ -201,6 +205,9 @@ handlers.py::
 
         return rc.DELETED
 
+Utilities & Auth
+----------------
+
 Let's add some cool stuff:
 
 * A new envelope class (included in this piston release)
@@ -255,6 +262,9 @@ auth.py::
             return False
 
 
+URLs
+----
+
 Finally urls.py::
 
     from django.conf.urls.defaults import patterns
@@ -270,3 +280,79 @@ Finally urls.py::
         '',
         api_url(r'^(/(?P<id>\w{24}))?$', books_handler),
         )
+
+
+API Response
+============
+
+So what does this get you?
+
+If you use the default envelope (from legacy piston), then:
+
+* For a GET request you see::
+
+    {
+        'title': "The Tiger's Wife",
+        'isbn10': '0385343833',
+        'isbn13': '978-0385343831',
+        'language': 'English',
+        'pages': 352,
+        'authors': ['TŽa Obreht',
+                ],
+        'editions': [{
+                 'publisher': 'Random House',
+                 'edition': 1,
+                 'date_published': '03/08/2011',
+                 }],
+        'awards': [{
+                      'name': 'Orange Prize',
+                      'year': 2011,
+                  }],
+        'is_favorite': 'true',
+    }
+
+If you use the EnhancedResponse envelope we added, for the same request, you see::
+
+    {
+        "status_code": 200,
+        "form_errors": {},
+        "error_code": null,
+        "error_message": '',
+        "data": {
+            'title': "The Tiger's Wife",
+            'isbn10': '0385343833',
+            'isbn13': '978-0385343831',
+            'language': 'English',
+            'pages': 352,
+            'authors': ['TŽa Obreht',
+                    ],
+            'editions': [{
+                     'publisher': 'Random House',
+                     'edition': 1,
+                     'date_published': '03/08/2011',
+                     }],
+            'awards': [{
+                          'name': 'Orange Prize',
+                          'year': 2011,
+                      }],
+            'is_favorite': 'true',
+        }
+    }
+
+In order to get form error feedback, error metadata you have to use the EnhancedResponse.
+
+With that, if you have issues with your data and it could not be validated, you see::
+
+    {
+        "status_code": 400,
+        "form_errors": {
+            'title': ['This field is required'],
+            'isbn10': ['Value is not a valid ISBN10 number'],
+            'authors': ['Could not find author with name Samuel L. Jackson'],
+        },
+        "error_code": null,
+        "error_message": '',
+        "data": {}
+    }    
+
+We don't use the preload the error code or message right now, you can use it to define your own error scheme. 
