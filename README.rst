@@ -11,9 +11,9 @@ Changes in PBS Education Version
 
 In order to implement best practices in API development, we have incorporated the following new features
 
-.. Resource definition subsystem
-.. Pluggable envelopes
-.. Form error feedback
+* Resource definition subsystem
+* Pluggable envelopes
+* Form error feedback
 
 Example of API building
 =======================
@@ -22,7 +22,7 @@ Here we demonstrate how to use the new features along with the existing ones
 
 We'll start by selecting a few models
 
-models.py:: python
+models.py::
 
     from django.db import models
     
