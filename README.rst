@@ -22,7 +22,7 @@ Here we demonstrate how to use the new features along with the existing ones
 
 We'll start by selecting a few models
 
-models.py
+models.py::
 
     from django.db import models
     
@@ -72,8 +72,9 @@ One of the major new features added to piston by PBS Education is the PistonView
 .. If the object has a class member of type list/ tuple/ set of other objects (homogenous), you can assign other PistonViews to render them
 
 
-views/piston.py
+views/piston.py::
 
+    import datetime
     from piston.handler import PistonView, Field
 
     class EditionSummaryView(PistonView):
@@ -113,5 +114,89 @@ views/piston.py
                 Field('', lambda x: [y.name for y in x.authors.all()], destination='authors'),
                 Field('', lambda x: [EditionSummaryView(y) for y in x.editions.all()], destination='editions'),
                 Field('', lambda x: [AwardSummaryView(y) for y in x.awards.all()], destination='awards'),
+                Field('', lambda x: datetime.datetime.now().strftime("%m/%d/%y"), destination='time_retrieved'),
                 ]
 
+
+Let's also write a PaginationView while we're at it.
+It takes the django page object and some relevant information:: 
+
+    from piston.handler import PistonView, Field
+
+    class PaginationView(PistonView):
+        fields = [
+                Field('number', destination='page'),
+                Field('paginator.num_pages', destination='pages'),
+                Field('paginator.count', destination='count'),
+                Field('paginator.per_page', destination='per_page'),
+                Field('has_next'),
+                Field('has_previous'),
+                Field('start_index', destination='start'),
+                Field('end_index', destination='end'),
+                ]
+
+
+Now let's write some Piston handlers.
+
+handlers.py::
+
+    from piston.handler import BaseHandler
+    from piston.resource import PistonNotFoundException
+    from myproject.utils.forms import PaginationForm
+
+
+    class BooksHandler(BaseHandler):
+        allowed_methods = ('GET', 'POST', 'PUT', 'DELETE',)
+
+    def read(self, request, id=None):
+        if id is None:
+            return self.list(request)
+        return BookDetailedView(self.get(request, id))
+
+    def list(self, request):
+        form = PaginationForm(request.GET)
+        per_page, page_num = form.get_pagination_params()
+
+        paginator = Paginator(Book.objects.all(), per_page)
+        page = paginator.page(page_num)
+        return {
+            'pagination': PaginationView(page),
+            'books': BookSummaryView([x for x in page.object_list]),
+            }
+
+    def get(self, request, id):
+        try:
+            book = Book.objects.get(id=id)
+        except (ValidationError, Book.DoesNotExist):
+            raise PistonNotFoundException('Error retrieving book with ID %s' % id)
+        return book
+
+    @login_required()
+    def create(self, request, id=None):
+        if id is not None:
+            raise PistonNotFoundException('ID not expected when creating books')
+
+        form = BookForm(request.data)
+        if not form.is_valid():
+            raise FormValidationError(form)
+
+        book = form.save()
+
+        return BookDetailedView(book)
+
+    @login_required()
+    def update(self, request, id):
+        form = BookForm(request.data)
+        if not form.is_valid():
+            raise FormValidationError(form)
+
+        book = form.save()
+
+        return BookDetailedView(book)
+
+    @login_required()
+    def delete(self, request, id):
+        book = self.get(request, id)
+        book.delete()
+
+        return rc.DELETED
