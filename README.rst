@@ -22,7 +22,7 @@ Here we demonstrate how to use the new features along with the existing ones
 
 We'll start by selecting a few models
 
-models.py::
+models.py:: python
 
     from django.db import models
     
@@ -72,7 +72,7 @@ One of the major new features added to piston by PBS Education is the PistonView
 .. If the object has a class member of type list/ tuple/ set of other objects (homogenous), you can assign other PistonViews to render them
 
 
-views/piston.py::
+views/piston.py:: python
 
     import datetime
     from piston.handler import PistonView, Field
@@ -119,7 +119,7 @@ views/piston.py::
 
 
 Let's also write a PaginationView while we're at it.
-It takes the django page object and some relevant information:: 
+It takes the django page object and some relevant information:: python 
 
     from piston.handler import PistonView, Field
 
@@ -138,7 +138,7 @@ It takes the django page object and some relevant information::
 
 Now let's write some Piston handlers.
 
-handlers.py::
+handlers.py:: python
 
     from piston.handler import BaseHandler
     from piston.resource import PistonNotFoundException
@@ -200,3 +200,73 @@ handlers.py::
         book.delete()
 
         return rc.DELETED
+
+Let's add some cool stuff:
+
+* A new envelope class (included in this piston release)
+* A serialization selector URL wrapper
+* A new Oauth authentication handler
+
+
+utils.py:: python
+
+    from django.conf.urls.defaults import url as django_url
+    from piston import resource
+
+
+    class Resource(resource.Resource):
+        def __init__(self, *args, **kwargs):
+            if 'response_class' not in kwargs:
+                kwargs['response_class'] = resource.EnhancedResponse
+            super(Resource, self).__init__(*args, **kwargs)
+
+
+    def api_url(pattern, *args, **kwargs):
+        assert pattern.endswith('$'), 'API urls must be terminal.'
+        # Ensure that all negative look behind formats are fixed width.
+        pattern = r'%s(\.(?P<emitter_format>json|xml|jsonp)|(?<!.\.json|..\.xml|\.jsonp))$' % pattern[:-1]
+        return django_url(pattern, *args, **kwargs)
+
+
+auth.py:: python
+
+    from django.conf import settings
+    from django.http import HttpResponse
+
+    from piston import oauth
+    from piston.authentication import OAuthAuthentication, send_oauth_error
+
+    class OAuthApiAuthentication(OAuthAuthentication):
+        def is_authenticated(self, request):
+            if self.is_valid_request(request):
+                try:
+                    consumer, token, parameters = self.validate_token(request)
+                except oauth.OAuthError, err:
+                    if settings.DEBUG and request.GET.get('debug'):
+                        print send_oauth_error(err)
+                    return False
+
+                if consumer and token:
+                    request.user = token.user
+                    request.consumer = consumer
+                    request.throttle_extra = token.consumer.id
+                    return True
+
+            return False
+
+
+Finally urls.py:: python
+
+    from django.conf.urls.defaults import patterns
+
+    from myproject.apps.api.auth import OAuthApiAuthentication
+    from myproject.apps.api.utils import api_url, Resource
+    from myproject.apps.books.handlers import BooksHandler
+
+    auth = OAuthApiAuthentication()
+    books_handler = Resource(BooksHandler, authentication=auth)
+
+    urlpatterns = patterns(
+        '',
+        api_url(r'^(/(?P<id>\w{24}))?$', books_handler),
+        )
