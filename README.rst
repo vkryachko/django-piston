@@ -355,3 +355,38 @@ With that, if you have issues with your data and it could not be validated, you 
     }    
 
 We currently don't mandate default usage of the error code or message. You can use it to define your own error scheme. 
+
+If you're retrieving a list of books, you'll see something like::
+
+    {
+        "status_code": 200,
+        "form_errors": {},
+        "error_code": null,
+        "error_message": "",
+        "data": {
+            'pagination': {
+                    'page': 2,
+                    'pages': 13,
+                    'count': 254,
+                    'per_page': 20,
+                    'has_next': true,
+                    'has_previous': false,
+                    'start': 21,
+                    'end': 40,
+                    },
+            'books': [{
+                        'id': 1,
+                        'title': "The Tiger's Wife",
+                        'isbn10': '0385343833',
+                        'authors': ['TŽa Obreht'],
+                        },
+                      {
+                        'id': 2,
+                        'title': "A Game of Thrones: A Song of Ice and Fire: Book One",
+                        'isbn10': '0553386794',
+                        'authors': ['George R.R. Martin'],
+                        },
+                      ...
+                      ],
+                  }
+            }
