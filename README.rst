@@ -82,7 +82,7 @@ views/piston.py::
                 'id',
                 'number',
                 'publisher.name',
-                'date_published',
+                Field('', lambda x: x.date_published.strftime("%m/%d/%y"), destination='date_published'),
                 ]
 
 
@@ -90,7 +90,7 @@ views/piston.py::
         fields = [
                 'id',
                 'name',
-                'date_awarded',
+                'date_awarded.year',
                 ]
 
 
@@ -281,8 +281,8 @@ Finally urls.py::
         )
 
 
-API Response
-============
+Responses
+=========
 
 So what does this get you?
 
@@ -390,3 +390,4 @@ If you're retrieving a list of books, you'll see something like::
                       ],
                   }
             }
+        }
