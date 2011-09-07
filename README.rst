@@ -72,8 +72,7 @@ One of the major new features added to piston by PBS Education is the PistonView
 .. If the object has a class member of type list/ tuple/ set of other objects (homogenous), you can assign other PistonViews to render them
 
 
-views/piston.py
----------------
+views/piston.py::
 
     import datetime
     from piston.handler import PistonView, Field
