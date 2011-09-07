@@ -289,7 +289,7 @@ So what does this get you?
 
 If you use the default envelope (from legacy piston), then:
 
-* For a GET request you see::
+For a GET request you see::
 
     {
         'title': "The Tiger's Wife",
@@ -355,4 +355,4 @@ With that, if you have issues with your data and it could not be validated, you 
         "data": {}
     }    
 
-We don't use the preload the error code or message right now, you can use it to define your own error scheme. 
+We currently don't mandate default usage of the error code or message. You can use it to define your own error scheme. 
