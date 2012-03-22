@@ -639,7 +639,8 @@ class OAuthSignatureMethod_HMAC_SHA1(OAuthSignatureMethod):
             key += escape(token.secret)
         raw = '&'.join(sig)
 
-        return key, raw
+        # Bug fix, if the key comes out as unicode, hmac will break.
+        return str(key), raw
 
     def build_signature(self, oauth_request, consumer, token):
         """Builds the base signature string."""
