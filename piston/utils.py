@@ -56,6 +56,8 @@ class rc_factory(object):
             flag is updated when the _set_content method (via the content
             property) is called
             """
+
+            @HttpResponse.content.setter
             def _set_content(self, content):
                 """
                 Set the _container and _is_string properties based on the
@@ -67,11 +69,12 @@ class rc_factory(object):
                 if not isinstance(content, basestring) and hasattr(content, '__iter__'):
                     self._container = content
                     self._is_string = False
+                    self._base_content_is_iter = True
                 else:
                     self._container = [content]
                     self._is_string = True
+                    self._base_content_is_iter = False
 
-            content = property(HttpResponse._get_content, _set_content)
 
         return HttpResponseWrapper(r, content_type='text/plain', status=c)
 
