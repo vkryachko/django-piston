@@ -201,7 +201,7 @@ class Resource(object):
         # If we're looking at a response object which contains non-string
         # content, then assume we should use the emitter to format that
         # content
-        if isinstance(response.data, HttpResponse) and response.data._base_content_is_iter:
+        if isinstance(response.data, HttpResponse):
             # TODO: fix this
             response.status_code = response.data.status_code
             # Note: We can't use result.content here because that method attempts
